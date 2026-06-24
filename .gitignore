@@ -1,0 +1,33 @@
+# 编译产物
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+short-url
+
+# Go 相关
+/vendor/
+/go.sum
+
+# IDE 相关
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# 配置文件（敏感信息）
+/config.prod.yaml
+/config.local.yaml
+.env
+
+# 日志文件
+/logs/
+*.log
+
+# 系统文件
+.DS_Store
+Thumbs.db
