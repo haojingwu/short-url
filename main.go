@@ -9,6 +9,7 @@ import (
 	"gorm.io/gorm"
 
 	"short-url/database"
+	"short-url/middleware"
 	"short-url/models"
 	"short-url/utils"
 )
@@ -19,7 +20,11 @@ func main() {
 	db := database.DB
 
 	//2.创建Gin引擎
-	r := gin.Default()
+	r := gin.New()
+
+	//注册自定义中间件
+	r.Use(middleware.RecoveryMiddleware())
+	r.Use(middleware.LoggerMiddleware())
 
 	//3.注册路由
 	//POST /shorten -生成短链 写入数据库
@@ -55,7 +60,7 @@ func main() {
 			return
 		}
 
-		//检查code是否已存在的函数
+		//检查code是否已存在
 		checkCodeExists := func(code string) bool {
 			var count int64
 			db.Model(&models.URL{}).Where("code = ?", code).Count(&count)
@@ -110,17 +115,20 @@ func main() {
 			return
 		}
 
-		//2返回原始URL
-		c.JSON(http.StatusOK, gin.H{
-			"code":         url.Code,
-			"original_url": url.OriginalURL,
-			"click_count":  url.ClickCount,
-			"message":      "跳转占位",
-		})
+		//2异步更新点击统计(不阻塞跳转)
+		go func() {
+			//使用UpdateColumn跳过GORM钩子
+			db.Model(&models.URL{}).Where("code = ?", code).
+				UpdateColumn("click_count", gorm.Expr("click_count + 1"))
+		}()
+
+		//3 302临时重定向到原始URL
+		c.Redirect(http.StatusFound, url.OriginalURL)
+
 	})
 
-	//GET /status/:code -统计信息(从数据库查询)
-	r.GET("/status/:code", func(c *gin.Context) {
+	//GET /stats/:code -统计信息(从数据库查询)
+	r.GET("/stats/:code", func(c *gin.Context) {
 		code := c.Param("code")
 
 		var url models.URL
@@ -128,9 +136,9 @@ func main() {
 
 		if result.Error != nil {
 			if result.Error == gorm.ErrRecordNotFound {
-				c.JSON(http.StatusNotFound, gin.H{
-					"error": "查询失败",
-				})
+				c.JSON(http.StatusNotFound, gin.H{"error": "短链不存在"})
+			} else {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "查询失败"})
 			}
 			return
 		}
