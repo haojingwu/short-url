@@ -512,6 +512,7 @@ defer func() {
         c.AbortWithStatusJSON(500, gin.H{"error": "服务器内部错误"})
     }
 }()
+```
 
 #### Logger 中间件（请求日志） 
 
