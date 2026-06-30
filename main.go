@@ -9,6 +9,7 @@ import (
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 
+	"short-url/bloom"
 	"short-url/cache"
 	"short-url/database"
 	"short-url/logger"
@@ -28,6 +29,9 @@ func main() {
 
 	//3.初始化 Redis
 	cache.InitRedis()
+
+	//初始化布隆过滤器并预热
+	bloom.InitBloomFilter()
 
 	//4.创建Gin引擎
 	r := gin.New()
@@ -102,6 +106,9 @@ func main() {
 			return
 		}
 
+		//将新code添加到布隆过滤器
+		bloom.Add(code)
+
 		//删除缓存(保证数据一致性)
 		ctx := c.Request.Context()
 		cacheKey := "short:" + code
@@ -121,12 +128,18 @@ func main() {
 		})
 	})
 
-	//GET /:code - 跳转(从数据库查询)
+	//GET /:code - 302跳转(布隆过滤器 + Redis缓存)
 	r.GET("/:code", func(c *gin.Context) {
 		code := c.Param("code") //获取URL路径中的 :code参数
 		ctx := c.Request.Context()
 		cacheKey := "short:" + code
-
+		//布隆过滤器拦截-防止缓存穿透
+		if !bloom.Exists(code) {
+			//返回false, 一定不存在 直接返回404
+			logger.Warn("布隆过滤器拦截了不存在短链",
+				zap.String("code", code),
+			)
+		}
 		//查Redis缓存
 		cached, err := cache.GetCache(ctx, cacheKey)
 		if err == nil {
