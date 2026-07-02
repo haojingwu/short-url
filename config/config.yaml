@@ -1,0 +1,28 @@
+# ============================================================
+# 开发环境配置文件
+# ============================================================
+
+server:
+  port: "8080"
+  mode: "debug"  # debug / release
+
+database:
+  host: "mysql"
+  port: "3306"
+  user: "root"
+  password: "123456"
+  name: "short_url"
+
+redis:
+  addr: "redis:6379"
+  password: ""
+  db: 0
+  pool_size: 10
+
+log:
+  level: "debug"
+  filename: "logs/app.log"
+  max_size: 100
+  max_backups: 30
+  max_age: 7
+  compress: true

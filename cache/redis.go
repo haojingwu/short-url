@@ -2,39 +2,24 @@ package cache
 
 import (
 	"context"
-	"fmt"
 	"log"
-	"os"
 	"time"
 
 	"github.com/redis/go-redis/v9"
+
+	"short-url/config"
 )
 
 var RDB *redis.Client
 
-// InitRedis初始化Redis连接
 func InitRedis() {
-	host := os.Getenv("REDIS_HOST")
-	if host == "" {
-		host = "localhost"
-	}
-	port := os.Getenv("REDIS_PORT")
-	if port == "" {
-		port = "6379"
-	}
-	password := os.Getenv("REDIS_PASSWORD")
-	db := 0
-	if dbStr := os.Getenv("REDIS_DB"); dbStr != "" {
-		fmt.Sscanf(dbStr, "%d", &db)
-	}
-
-	addr := fmt.Sprintf("%s:%s", host, port)
+	cfg := config.Cfg
 
 	RDB = redis.NewClient(&redis.Options{
-		Addr:         addr,
-		Password:     password,
-		DB:           db,
-		PoolSize:     10,
+		Addr:         cfg.Redis.Addr,
+		Password:     cfg.Redis.Password,
+		DB:           cfg.Redis.DB,
+		PoolSize:     cfg.Redis.PoolSize,
 		MinIdleConns: 5,
 		MaxRetries:   3,
 	})
@@ -46,20 +31,20 @@ func InitRedis() {
 		log.Fatal("❌ Redis 连接失败:", err)
 	}
 
-	fmt.Printf("✅ Redis 连接成功: %s\n", addr)
+	log.Printf("✅ Redis 连接成功: %s\n", cfg.Redis.Addr)
 }
 
-// GetCache 从Redis获取缓存
+// GetCache 从 Redis 获取缓存
 func GetCache(ctx context.Context, key string) (string, error) {
 	return RDB.Get(ctx, key).Result()
 }
 
-// SetCache 写入Redis缓存(带过期时间)
+// SetCache 写入 Redis 缓存
 func SetCache(ctx context.Context, key string, value string, expiration time.Duration) error {
 	return RDB.Set(ctx, key, value, expiration).Err()
 }
 
-// DeleteCache 删除Redis缓存
+// DeleteCache 删除 Redis 缓存
 func DeleteCache(ctx context.Context, key string) error {
 	return RDB.Del(ctx, key).Err()
 }

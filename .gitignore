@@ -31,3 +31,11 @@ short-url
 # 系统文件
 .DS_Store
 Thumbs.db
+
+# 配置文件（敏感信息）
+config/config.local.yaml
+config/config.prod.yaml
+*.env
+
+# 但不忽略示例配置文件
+!config/config.yaml.example

@@ -11,6 +11,7 @@ import (
 
 	"short-url/bloom"
 	"short-url/cache"
+	"short-url/config"
 	"short-url/database"
 	"short-url/logger"
 	"short-url/middleware"
@@ -19,24 +20,33 @@ import (
 )
 
 func main() {
-	//1.初始化日志
+	//1.加载配置
+	config.InitConfig()
+	cfg := config.Cfg
+
+	//2.初始化日志
 	logger.InitLogger()
 	defer logger.Sync()
+	logger.Info("🚀 服务启动中...",
+		zap.String("env", getEnv()),
+		zap.String("mode", cfg.Server.Mode),
+	)
 
-	//2.初始化数据库
+	//3.初始化数据库
 	database.InitDB()
 	db := database.DB
 
-	//3.初始化 Redis
+	//4.初始化 Redis
 	cache.InitRedis()
 
-	//初始化布隆过滤器并预热
+	//5.初始化布隆过滤器并预热
 	bloom.InitBloomFilter()
 
-	//4.创建Gin引擎
+	//6.创建Gin引擎
+	if cfg.Server.Mode == "release" {
+		gin.SetMode(gin.ReleaseMode)
+	}
 	r := gin.New()
-
-	//注册自定义中间件
 	r.Use(middleware.RecoveryMiddleware())
 	r.Use(middleware.LoggerMiddleware())
 
@@ -186,7 +196,7 @@ func main() {
 		//2异步更新点击统计(不阻塞跳转)
 		go safeIncrementClick(db, code)
 
-		logger.Info("缓存未名字, 查 DB 后回写",
+		logger.Info("缓存未命中, 查 DB 后回写",
 			zap.String("code", code),
 			zap.String("url", url.OriginalURL),
 		)
@@ -231,6 +241,14 @@ func main() {
 		logger.Fatal("服务启动失败", zap.Error(err))
 	}
 
+}
+
+func getEnv() string {
+	env := config.Cfg.Server.Mode
+	if env == "release" {
+		return "production"
+	}
+	return "development"
 }
 
 // 安全异步更新统计(带recover防止panic)
